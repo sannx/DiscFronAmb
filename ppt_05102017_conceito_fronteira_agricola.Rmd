@@ -1,0 +1,203 @@
+---
+title: ""
+author: "Oliveira-Santos, Claudinei"
+date: "4 de outubro de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Determinantes dos preços de terras no Brasil: uma análise de região de fronteira agrícola e áreas tradicionais", publicado na Revista de Economia e Sociologia Rural
+
+```{r packages and functions, message=FALSE, warning=FALSE, echo=FALSE}
+# library(ggmap) #Non exist
+library(ggplot2)
+library(gpclib)
+require(graphics)
+library(mapdata)
+library(maps)
+library(maptools)
+library(plyr)
+library(raster)
+library(rgdal)
+library(scales)
+# if (!require(gpclib)) install.packages("gpclib", type="source")
+gpclibPermit()
+source('Multiplot.r')
+```
+
+
+
+```{r tableaCSV, echo=FALSE, cache=TRUE}
+```
+
+
+
+```{r shpFiles, echo=FALSE, cache=TRUE}
+ogrBr <- readOGR("/hds/dados_work/DATASAN/shapefile/limite_brasil/pa_br_Limite_Brasil_250_2013_ibge_wgs.shp", layer = "pa_br_Limite_Brasil_250_2013_ibge_wgs")
+ogrUf <- readOGR("/hds/dados_work/DATASAN/shapefile/limite_estados/pa_br_estados_250_2013_ibge_wgs84.shp", layer = "pa_br_estados_250_2013_ibge_wgs84")
+ogrMu <- readOGR("/hds/dados_work/DATASAN/shapefile/limite_municipios/pa_br_municipios_250_2013_ibge.shp", layer = "pa_br_municipios_250_2013_ibge")
+# ogrMes < readOGR("/hds/dados_work/DATASAN/shapefile/mesorregiao/pa_br_mesoregioes_250_2013_ibge.shp", layer = "pa_br_mesoregioes_250_2013_ibge")
+ogrMes <- shapefile("/hds/dados_work/DATASAN/shapefile/mesorregiao/pa_br_mesoregioes_250_2013_ibge.shp")
+```
+
+
+
+```{r editShp, echo=FALSE, cache=TRUE}
+#Editando Spatial data to plot
+
+#Br fortify
+ogrBr@data$id <- ogrBr$Id
+fortfyBr = fortify(ogrBr, region = "id")
+fortfyBr = join(fortfyBr, ogrBr@data, by="id")
+
+#UF fortify
+ogrUf@data$id <- ogrUf$NM_UF
+fortfyUf = fortify(ogrUf, region = "id")
+fortfyUf = join(fortfyUf, ogrUf@data, by="id")
+
+#Mu fortify
+ogrMu@data$id <- ogrMu$CD_GEOCMU
+fortfyMu = fortify(ogrMu, region = "id")
+fortfyMu = join(fortfyMu, ogrMu@data, by="id")
+
+
+#Me fortify
+ogrMes@data$id <- ogrMes$NM_MESO
+fortfyMes = fortify(ogrMes, region = "id")
+fortfyMes = join(fortfyMes, ogrMes@data, by="id")
+
+```
+
+
+
+```{r selectAreas, echo=FALSE, cache=TRUE}
+#ESTADOS
+fronteiraUf <- fortfyUf[fortfyUf$id %in% c("MA", "TO", "PI", "BA"), ]
+  
+transicaoUf <- fortfyUf[fortfyUf$id %in% c("MT", "MS", "GO"), ]
+
+desenvolvidaUf <- fortfyUf[fortfyUf$id %in% c("RS", "PR"), ]
+
+
+#MUNICIPIOS
+head(fortfyMu)
+fronteiraMu <- fortfyMu[fortfyMu$NM_UF %in% c("MA", "TO", "PI", "BA"), ]
+fronteiraMu <- fronteiraMu[fronteiraMu$id %in% c("2101400", "2103307", "1702109", "1709500", "1721000", "2211209"), ]
+fronteiraMes <- fortfyMes[fortfyMes$id == "EXTREMO OESTE BAIANO", ]
+
+
+transicaoMu <- fortfyMu[fortfyMu$NM_UF %in% c("MT", "MS", "GO"), ]
+transicaoMu <- transicaoMu[transicaoMu$id %in% c("4314100", "4322400", "4104808", "4104303", "4119905", "4113700", "4109401"), ]
+
+
+
+transicaoMu <- fortfyMu[fortfyMu$id %in% c("MT", "MS", "GO"), ]
+
+desenvolvidaMu <- fortfyMu[fortfyMu$id %in% c("RS", "PR"), ]
+```
+
+
+
+## Localização dos pontos de pastagem ao longo do Brasil
+```{r Fig1 ShpPontos, echo=FALSE, cache=FALSE, fig.height=6, fig.width=16, fig.align="center"}
+#Pontos de pastagem
+gPlotBr <- ggplot(data = fortfyUf) +
+  geom_polygon(aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'white') + 
+  geom_polygon(data = fronteiraUf, aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'red') + 
+  geom_polygon(data = transicaoUf, aes(x = long, y = lat, group = group), fill = "yellow", colour = "black") +
+  geom_polygon(data = desenvolvidaUf, aes(x = long, y = lat, group = group), fill = "green", colour = "black") +
+  labs(title = "Áreas estudadas",
+       x = "longitude",
+       y = 'latitude',
+       caption = "") +
+  scale_fill_discrete() +
+  theme(legend.position="top")+
+  # scale_fill_manual(values=c("red", "yellow", "green"), 
+                       # name="Área amostral",
+                       # breaks=c("fronteira", "transição", "desenvolvida"),
+                       # labels=c("fronteira", "transição", "desenvolvida")) +
+  coord_equal() + 
+  theme_bw()
+
+
+
+gPlotFront <- ggplot(data = fortfyUf) +
+  # geom_polygon(aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'white') + 
+  geom_polygon(data = fronteiraUf, aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'red') + 
+  # geom_polygon(data = transicaoUf, aes(x = long, y = lat, group = group), fill = "yellow", colour = "black") +
+  # geom_polygon(data = desenvolvidaUf, aes(x = long, y = lat, group = group), fill = "green", colour = "black") +
+  labs(title = "Fronteira Agrícola",
+       x = "longitude",
+       y = 'latitude',
+       caption = "") +
+  scale_fill_discrete() +
+  theme(legend.position="top")+
+  # scale_fill_manual(values=c("red", "yellow", "green"), 
+                       # name="Área amostral",
+                       # breaks=c("fronteira", "transição", "desenvolvida"),
+                       # labels=c("fronteira", "transição", "desenvolvida")) +
+  coord_equal() + 
+  theme_bw()
+
+
+gPlotTran <- ggplot(data = fortfyUf) +
+  # geom_polygon(aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'white') + 
+  # geom_polygon(data = fronteiraUf, aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'red') + 
+  geom_polygon(data = transicaoUf, aes(x = long, y = lat, group = group), fill = "yellow", colour = "black") +
+  # geom_polygon(data = desenvolvidaUf, aes(x = long, y = lat, group = group), fill = "green", colour = "black") +
+  labs(title = "Área em transição",
+       x = "longitude",
+       y = 'latitude',
+       caption = "") +
+  scale_fill_discrete() +
+  theme(legend.position="top")+
+  # scale_fill_manual(values=c("red", "yellow", "green"), 
+                       # name="Área amostral",
+                       # breaks=c("fronteira", "transição", "desenvolvida"),
+                       # labels=c("fronteira", "transição", "desenvolvida")) +
+  coord_equal() + 
+  theme_bw()
+
+
+gPlotDese <- ggplot(data = fortfyUf) +
+  # geom_polygon(aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'white') + 
+  # geom_polygon(data = fronteiraUf, aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'red') + 
+  # geom_polygon(data = transicaoUf, aes(x = long, y = lat, group = group), fill = "yellow", colour = "black") +
+  geom_polygon(data = desenvolvidaUf, aes(x = long, y = lat, group = group), fill = "green", colour = "black") +
+  labs(title = "",
+       x = "longitude",
+       y = 'latitude',
+       caption = "Área desenvolvida") +
+  scale_fill_discrete() +
+  theme(legend.position="top")+
+  # scale_fill_manual(values=c("red", "yellow", "green"), 
+                       # name="Área amostral",
+                       # breaks=c("fronteira", "transição", "desenvolvida"),
+                       # labels=c("fronteira", "transição", "desenvolvida")) +
+  coord_equal() + 
+  theme_bw()
+
+multiplot(gPlotBr, gPlotFront, gPlotTran, gPlotDese, cols = 4)
+
+
+
+
+ggplot(data = fortfyUf) +
+  # geom_polygon(aes(x = long, y = lat, fill = NM_UF, group = group), colour = 'black', fill = 'white') + 
+  geom_polygon(data = fronteiraUf, aes(x = long, y = lat, fill = id, group = group), fill = 'white', colour = "black", lwd = 0.2) +
+  geom_polygon(data = fronteiraMu, aes(x = long, y = lat, group = group), fill = "red", colour = "gray", lwd = 0.2) +
+  geom_polygon(data = fronteiraMes, aes(x = long, y = lat, group = group), fill = "red", colour = "gray", lwd = 0.2) +
+  labs(title = "Fronteira Agrícola", x = "longitude", y = 'latitude', caption = "") +
+  scale_fill_discrete() +
+  theme(legend.position="top")+
+  coord_equal() + 
+  theme_bw()
+```
+
+
+
+
+
